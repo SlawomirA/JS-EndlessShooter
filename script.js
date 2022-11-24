@@ -6,7 +6,21 @@ window.addEventListener('load',function (){
     canvas.height = 500;
 
     class InputHandler{
-
+        constructor(game) {
+            this.game = game;
+            window.addEventListener('keydown', e=>{
+                if((e.key === 'ArrowUp') && this.game.keys.indexOf(e.key) === -1){      //check if button is pressed AND if its not yet in the array
+                    this.game.keys.push(e.key);
+                }
+                console.log(this.game.keys)
+            });
+            window.addEventListener('keydown', e=>{                         //check if button is pressed AND if its not yet in the array
+                if(this.game.keys.indexOf(e.key) > -1){
+                    this.game.keys.splice(this.game.keys.indexOf(e.key), 1);            //first arg is object, second is delete count indicating number of delted elements
+                }
+                console.log(this.game.keys)
+            });
+        }
     }
 
     class Particle {
@@ -18,7 +32,21 @@ window.addEventListener('load',function (){
     }
 
     class Player{
+        constructor(game) {
+            this.game = game;
+            this.width=120;
+            this.height=160;
+            this.x = 20;
+            this.y = 100;
+            this.speedY=1;
+        }
+        update(){
+            this.y += this.speedY;
 
+        }
+        draw(context){
+            context.fillRect(this.x, this.y, this.width, this.height);
+        }
     }
 
     class Enemy{
@@ -36,4 +64,32 @@ window.addEventListener('load',function (){
     class UI{           //draw score and so on
 
     }
+
+    class Game{         //logic of the game
+        constructor(width, height) {
+            this.width = width;
+            this.height = height;
+            this.player = new Player(this);
+            this.input = new InputHandler(this);
+            this.keys = [];
+        }
+        update(){
+            this.player.update();
+        }
+        draw(context){
+            this.player.draw(context);
+        }
+    }
+
+    const game = new Game(canvas.width, canvas.height);
+    //animation loop
+    function animate(){
+        ctx.clearRect(0,0, canvas.width, canvas.height );
+        game.update();
+        game.draw(ctx);
+        requestAnimationFrame(animate); //Passing animate to create endless animation loop, auto generates time stamp and interval
+
+    }
+    animate()
+
 })
