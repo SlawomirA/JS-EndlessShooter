@@ -9,14 +9,20 @@ window.addEventListener('load',function (){
         constructor(game) {
             this.game = game;
             window.addEventListener('keydown', e=>{
-                if((e.key === 'ArrowUp') && this.game.keys.indexOf(e.key) === -1){      //check if button is pressed AND if its not yet in the array
-                    this.game.keys.push(e.key);
-                }
+                if(( (e.key === 'ArrowUp') ||
+                     (e.key === 'ArrowDown') ||
+                     (e.key === 'ArrowLeft') ||
+                     (e.key === 'ArrowUp')
+
+                    ) && this.game.keys.indexOf(e.key) === -1)//check if button is pressed AND if it's not yet in the array
+                        {
+                            this.game.keys.push(e.key);
+                        }
                 console.log(this.game.keys)
             });
-            window.addEventListener('keydown', e=>{                         //check if button is pressed AND if its not yet in the array
+            window.addEventListener('keyup', e=>{                         //check if button is released and then delete key from array
                 if(this.game.keys.indexOf(e.key) > -1){
-                    this.game.keys.splice(this.game.keys.indexOf(e.key), 1);            //first arg is object, second is delete count indicating number of delted elements
+                    this.game.keys.splice(this.game.keys.indexOf(e.key), 1);            //first arg is object, second is delete count indicating number of deleted elements
                 }
                 console.log(this.game.keys)
             });
@@ -38,9 +44,14 @@ window.addEventListener('load',function (){
             this.height=160;
             this.x = 20;
             this.y = 100;
-            this.speedY=1;
+            this.speedY=0;
+            this.speedMax=2;
         }
         update(){
+            console.log("here")
+            if (this.game.keys.includes('ArrowUp')) this.speedY = -this.speedMax;
+            else if (this.game.keys.includes('ArrowDown')) this.speedY= this.speedMax;
+            else this.speedY=0;
             this.y += this.speedY;
 
         }
