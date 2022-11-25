@@ -12,12 +12,13 @@ window.addEventListener('load',function (){
                 if(( (e.key === 'ArrowUp') ||
                      (e.key === 'ArrowDown') ||
                      (e.key === 'ArrowLeft') ||
-                     (e.key === 'ArrowUp')
-
-                    ) && this.game.keys.indexOf(e.key) === -1)//check if button is pressed AND if it's not yet in the array
+                     (e.key === 'ArrowUp') ) && this.game.keys.indexOf(e.key) === -1)//check if button is pressed AND if it's not yet in the array
                         {
                             this.game.keys.push(e.key);
                         }
+                else if(e.key === ' '){
+                    this.game.player.shootTop();
+                }
                 console.log(this.game.keys)
             });
             window.addEventListener('keyup', e=>{                         //check if button is released and then delete key from array
@@ -34,7 +35,23 @@ window.addEventListener('load',function (){
     }
 
     class Projectile{
-
+        constructor(game, x ,y) {
+            this.game = game;
+            this.x = x;
+            this.y = y;
+            this.width = 10;
+            this.height = 3;
+            this.speed = 3;
+            this.markedForDeletion = false;                                                //flag for deleting objects
+        }
+        update() {
+            this.x += this.speed;
+            if(this.x > this.game.width * 0.9) this.markedForDeletion = true;               //if projectile is almost out of map we have to delete it
+        }
+        draw(context) {
+            context.fillStyle = 'yellow';                                                   //yellow lasers as projectiles
+            context.fillRect(this.x, this.y, this.height, this.width);
+        }
     }
 
     class Player{
@@ -46,17 +63,36 @@ window.addEventListener('load',function (){
             this.y = 100;
             this.speedY=0;
             this.speedMax=2;
+            this.projectiles=[];
         }
         update(){
-            console.log("here")
+            //handling moving top-down
             if (this.game.keys.includes('ArrowUp')) this.speedY = -this.speedMax;
             else if (this.game.keys.includes('ArrowDown')) this.speedY= this.speedMax;
             else this.speedY=0;
             this.y += this.speedY;
 
+            //calling update for every projectile in array
+            this.projectiles.forEach(projectile => {
+                projectile.update();
+            })
+
+            this.projectiles = this.projectiles.filter(projectile => !projectile.markedForDeletion)
+
         }
         draw(context){
+            context.fillStyle = 'black';
             context.fillRect(this.x, this.y, this.width, this.height);
+            this.projectiles.forEach(projectile => {
+                projectile.draw(context);
+            })
+        }
+        shootTop(){
+            if(this.game.ammo > 0) {
+                this.projectiles.push(new Projectile(this.game, this.x + 80, this.y + 30));
+                this.game.ammo--;
+                console.log(this.projectiles);
+            }
         }
     }
 
@@ -83,6 +119,7 @@ window.addEventListener('load',function (){
             this.player = new Player(this);
             this.input = new InputHandler(this);
             this.keys = [];
+            this.ammo = 20;
         }
         update(){
             this.player.update();
