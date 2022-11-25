@@ -91,15 +91,48 @@ window.addEventListener('load',function (){
             if(this.game.ammo > 0) {
                 this.projectiles.push(new Projectile(this.game, this.x + 80, this.y + 30));
                 this.game.ammo--;
-                console.log(this.projectiles);
             }
         }
     }
-
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////                                ENEMY CLASSES                                       ///////////////////
+///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     class Enemy{
+        constructor(game) {
+            this.game = game;
+            this.x = this.game.width;
+            this.speedX = Math.random() * -1.5 - 0.5;
+            this.markedForDeletion = false;
+
+            this.lives = 3;
+            this.score = this.lives;
+        }
+        update(){
+            this.x += this.speedX;
+            if(this.x + this.width < 0) this.markedForDeletion = true;  //if enemy X coord is <0 mark him for deletion
+        }
+        draw(context){
+            context.fillStyle = 'red';
+            context.fillRect(this.x, this.y, this.width, this.height);
+            context.fillStyle = 'black';
+            context.font = '20px Helvetica';
+            context.fillText(this.lives, this.x, this.y)
+        }
 
     }
 
+    class Angler1 extends Enemy {
+        constructor(game) {
+            super(game);
+            this.width = 228 * 0.2;
+            this.height = 169 * 0.2;
+            this.y = Math.random() * (this.game.height * 0.9 - this.height);    //Formula is:random * (Height of screen *0.9 - height of enemy)  to avoid situations where enemy is spawned below the map.
+        }
+    }
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     class Layer {
 
     }
@@ -109,35 +142,172 @@ window.addEventListener('load',function (){
     }
 
     class UI{           //draw score and so on
+        constructor(game) {
+
+            this.game = game;
+            this.fontSize = 25;
+            this.fontFamily = "Helvetica";
+            this.color = "white";
+
+
+        }
+
+        draw(context) {
+            context.save();
+            context.fillStyle = this.color;
+            context.shadowOffsetX = 2;
+            context.shadowOffsetY = 2;
+            context.shadowColor = 'black'
+
+            //score
+            context.font = this.fontSize + 'px ' + this.fontFamily;
+            context.fillText("Score " + this.game.score, 20, 40);
+
+            //ammo
+            for (let i = 0; i < this.game.ammo; i++) {
+                    context.fillRect(20 + 5 * i,50,3,20);
+            }
+
+            //timer for g-over
+            const formattedTime = (this.game.gameTime * 0.001).toFixed(1);
+            context.fillText('Timer  ' + formattedTime, 20, 100);
+
+            //game over messages
+            if(this.game.gameOver) {
+                context.textAlign = 'center';
+                let message1, message2;
+                if(this.game.score > this.game.winningScore) {
+                    message1 = "You win!";
+                    message2 = "Well done!";
+                } else {
+                    message1 = "You lost!";
+                    message2 = "Try again next time!";
+                }
+                context.font = "50px " + this.fontFamily;
+                context.fillText(message1, this.game.width *0.5, this.game.height * 0.5 - 40);
+                context.font = "25px " + this.fontFamily;
+                context.fillText(message2, this.game.width *0.5, this.game.height * 0.5 + 40);
+            }
+
+            context.restore();
+        }
 
     }
 
     class Game{         //logic of the game
         constructor(width, height) {
+            //Basic instructions for creating windows and player
             this.width = width;
             this.height = height;
             this.player = new Player(this);
+            //Keys input
             this.input = new InputHandler(this);
             this.keys = [];
-            this.ammo = 20;
+            //Ammo
+            this.ammo = 20;                         //Actual ammo count
+            this.maxAmmo = 50;                      //Max ammo count
+            //UI
+            this.ui = new UI(this);
+            //Enemies
+            this.enemies = [];
+            this.enemyTimer = 0;
+            this.enemyIntervalTimer = 1000;        //Create enemy every 1 second
+
+            //Periodic events timers
+            this.ammoRechargeTimer = 0;
+            this.ammoRechargeIntervalTimer = 500;  //Recharge 1 ammo every 0.5 second
+
+            //Scores
+            this.score = 0;
+            this.winningScore = 10;
+
+            //Game over limit time
+            this.gameTime = 0;
+            this.timeLimit = 10000;
+            this.gameOver = false;
+
+
         }
-        update(){
+        update(deltaTime){
+            if( !this.gameOver ) this.gameTime += deltaTime;
+            if( this.gameTime > this.timeLimit ) this.gameOver = true;
+
+
             this.player.update();
+
+            //Recharging player's ammo
+            if(this.ammoRechargeTimer > this.ammoRechargeIntervalTimer){
+                if(this.ammo < this.maxAmmo) this.ammo++;
+                this.ammoRechargeTimer=0;
+                console.log('ammo: '+this.ammo);
+            }
+            else {
+                this.ammoRechargeTimer+=deltaTime;
+            }
+
+            // Updating enemies
+            this.enemies.forEach(enemy => {
+                enemy.update();
+                if (this.checkCollision(this.player, enemy)) {
+                    enemy.markedForDeletion = true;
+                }
+                this.player.projectiles.forEach(projectile =>{
+                    if(this.checkCollision(projectile,enemy)) {
+                        enemy.lives--;
+                        projectile.markedForDeletion = true;
+                        if (enemy.lives <= 0) {
+                            enemy.markedForDeletion = true;
+                            if(!this.gameOver)  this.score += enemy.score;
+
+                            if(this.score > this.winningScore) this.gameOver = true;
+                        }
+                    }
+
+                })
+            })
+            //Deleting enemies
+            this.enemies = this.enemies.filter(enemy => !enemy.markedForDeletion);
+            if(this.enemyTimer > this.enemyIntervalTimer && !this.gameOver){
+                this.addEnemy();
+                this.enemyTimer = 0;
+            } else {
+                this.enemyTimer += deltaTime;
+            }
+
         }
         draw(context){
             this.player.draw(context);
+            this.ui.draw(context);
+            this.enemies.forEach(enemy => {
+                enemy.draw(context);
+            })
+        }
+        addEnemy(){
+            this.enemies.push(new Angler1(game));   //passing game into enemies array
+        }
+        checkCollision(rect1, rect2){
+            return (
+                rect1.x < rect2.x + rect2.width &&
+                rect1.x + rect1.width >  rect2.x &&
+                rect1.y < rect2.y + rect2.height &&
+                rect1.height + rect1.y > rect2.y)
+
+
         }
     }
 
     const game = new Game(canvas.width, canvas.height);
+    let lastTime = 0;           //last
     //animation loop
-    function animate(){
+    function animate(timeStamp){
+        const deltaTime = timeStamp - lastTime; //diff between this animation loop and the timestamp from the previous animation loop
+        lastTime = timeStamp;                   //we set the lastTime to timeStamp, so we can use it to calculate delta next time
         ctx.clearRect(0,0, canvas.width, canvas.height );
-        game.update();
+        game.update(deltaTime);
         game.draw(ctx);
         requestAnimationFrame(animate); //Passing animate to create endless animation loop, auto generates time stamp and interval
 
     }
-    animate()
+    animate(0)
 
 })
