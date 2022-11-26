@@ -19,6 +19,9 @@ window.addEventListener('load',function (){
                 else if(e.key === ' '){
                     this.game.player.shootTop();
                 }
+                else if(e.key === 'd'){
+                    this.game.debug = !this.game.debug;
+                }
                 console.log(this.game.keys)
             });
             window.addEventListener('keyup', e=>{                         //check if button is released and then delete key from array
@@ -57,13 +60,22 @@ window.addEventListener('load',function (){
     class Player{
         constructor(game) {
             this.game = game;
-            this.width=120;
-            this.height=160;
+            this.width=138;
+            this.height=131;
             this.x = 20;
             this.y = 100;
             this.speedY=0;
             this.speedMax=2;
             this.projectiles=[];
+
+
+            this.frameX = 0;
+            this.frameY = 0;
+            this.maxFrame = 4;
+            this.turningBack = false;
+            this.image = document.getElementById('player');
+
+
         }
         update(){
             //handling moving top-down
@@ -79,10 +91,22 @@ window.addEventListener('load',function (){
 
             this.projectiles = this.projectiles.filter(projectile => !projectile.markedForDeletion)
 
+            //changing frames for moving
+            if(!this.turningBack){
+                this.frameX++;
+                if(this.frameX >= this.maxFrame)
+                    this.turningBack = true;
+            } else {
+                this.frameX--;
+                if(this.frameX === 0)
+                    this.turningBack = false;
+            }
+
         }
         draw(context){
-            context.fillStyle = 'black';
-            context.fillRect(this.x, this.y, this.width, this.height);
+
+            if(this.game.debug) context.strokeRect(this.x, this.y, this.width, this.height);
+            context.drawImage(this.image, this.frameX * this.width,this.frameY * this.height,this.width,this.height ,this.x, this.y, this.width, this.height)
             this.projectiles.forEach(projectile => {
                 projectile.draw(context);
             })
@@ -106,27 +130,47 @@ window.addEventListener('load',function (){
 
             this.lives = 3;
             this.score = this.lives;
+
+            this.frameX=0;
+            this.frameY=0;
+            this.turningBack = false;
         }
         update(){
             this.x += this.speedX;
             if(this.x + this.width < 0) this.markedForDeletion = true;  //if enemy X coord is <0 mark him for deletion
+            //changing frames for moving
+            if(!this.turningBack){
+                this.frameX++;
+                if(this.frameX >= this.maxFrame)
+                    this.turningBack = true;
+            } else {
+                this.frameX--;
+                if(this.frameX === 0)
+                    this.turningBack = false;
+            }
         }
         draw(context){
-            context.fillStyle = 'red';
-            context.fillRect(this.x, this.y, this.width, this.height);
-            context.fillStyle = 'black';
-            context.font = '20px Helvetica';
-            context.fillText(this.lives, this.x, this.y)
+            if(this.game.debug) {
+                context.fillStyle = 'red';
+                context.strokeRect(this.x, this.y, this.width, this.height);
+                context.fillStyle = 'black';
+                context.font = '20px Helvetica';
+                context.fillText(this.lives, this.x, this.y)
+            }
+            context.drawImage(this.image, this.frameX * this.width,this.frameY * this.height,this.width,this.height ,this.x, this.y, this.width, this.height);
+
         }
 
     }
 
-    class Angler1 extends Enemy {
+    class Wyvern extends Enemy {
         constructor(game) {
             super(game);
-            this.width = 228 * 0.2;
-            this.height = 169 * 0.2;
+            this.width = 191;
+            this.height = 161;
+            this.image = document.getElementById("enemyWyvern");
             this.y = Math.random() * (this.game.height * 0.9 - this.height);    //Formula is:random * (Height of screen *0.9 - height of enemy)  to avoid situations where enemy is spawned below the map.
+            this.maxFrame = 3;
         }
     }
 
@@ -134,11 +178,45 @@ window.addEventListener('load',function (){
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     class Layer {
+        constructor(game, image, speedModifier) {
+            this.game = game;
+            this.image = image;
+            this.speedModifier = speedModifier;
+            this.width = 1920;
+            this.height = 1080;
+            this.x=0;
+            this.y=0;
 
+        }
+
+        update(){
+            if(this.x <= -this.width) this.x =0;
+            else this.x -= this.game.speed * this.speedModifier;
+        }
+
+        draw(context) {
+            context.drawImage(this.image, this.x, this.y);//draw background
+            context.drawImage(this.image, this.x + this.width, this.y);//draw second image to make sure that it looks like endless background
+        }
     }
 
     class Background {
+        constructor(game) {
+            this.game = game;
+            this.image1 = document.getElementById('layer1');
+            this.image2 = document.getElementById('layer2');
+            this.layer1 = new Layer(this.game, this.image1, 3);
+            this.layer2 = new Layer(this.game, this.image2, 3);
+            this.layers = [this.layer1];
+        }
 
+        update() {
+            this.layers.forEach(layer => layer.update());
+        }
+
+        draw(context) {
+            this.layers.forEach(layer => layer.draw(context));
+        }
     }
 
     class UI{           //draw score and so on
@@ -226,13 +304,21 @@ window.addEventListener('load',function (){
             this.timeLimit = 10000;
             this.gameOver = false;
 
+            //background
+            this.speed =1;
+            this.background = new Background(this);
+
+            this.debug = true;
+
+
 
         }
         update(deltaTime){
             if( !this.gameOver ) this.gameTime += deltaTime;
             if( this.gameTime > this.timeLimit ) this.gameOver = true;
 
-
+            this.background.update();
+            this.background.layer2.update();
             this.player.update();
 
             //Recharging player's ammo
@@ -276,14 +362,16 @@ window.addEventListener('load',function (){
 
         }
         draw(context){
+            this.background.draw(context);
             this.player.draw(context);
             this.ui.draw(context);
             this.enemies.forEach(enemy => {
                 enemy.draw(context);
             })
+            this.background.layer2.draw(context);
         }
         addEnemy(){
-            this.enemies.push(new Angler1(game));   //passing game into enemies array
+            this.enemies.push(new Wyvern(game));   //passing game into enemies array
         }
         checkCollision(rect1, rect2){
             return (
