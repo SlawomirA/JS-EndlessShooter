@@ -22,13 +22,11 @@ window.addEventListener('load',function (){
                 else if(e.key === 'd'){
                     this.game.debug = !this.game.debug;
                 }
-                console.log(this.game.keys)
             });
             window.addEventListener('keyup', e=>{                         //check if button is released and then delete key from array
                 if(this.game.keys.indexOf(e.key) > -1){
                     this.game.keys.splice(this.game.keys.indexOf(e.key), 1);            //first arg is object, second is delete count indicating number of deleted elements
                 }
-                console.log(this.game.keys)
             });
         }
     }
@@ -100,10 +98,10 @@ window.addEventListener('load',function (){
 
             this.powerUp=false;
             this.powerUpTimer=0;
-            this.powerUpLimit=10000;
+            this.powerUpLimit=2000;
 
         }
-        update(){
+        update(deltaTime){
             //handling moving top-down
             if (this.game.keys.includes('ArrowUp')) this.speedY = -this.speedMax;
             else if (this.game.keys.includes('ArrowDown')) this.speedY= this.speedMax;
@@ -130,6 +128,17 @@ window.addEventListener('load',function (){
                 }
             }
 
+            //Powerup
+            if(this.powerUp){
+                if (this.powerUpTimer > this.powerUpLimit) {
+                    this.powerUpTimer = 0;
+                    this.powerUp = false;
+                } else {
+                    this.powerUpTimer += deltaTime;
+                }
+            }
+
+
         }
         draw(context){
 
@@ -145,6 +154,12 @@ window.addEventListener('load',function (){
                 this.game.ammo--;
             }
         }
+
+        enterPowerUp() {
+            this.powerUpTimer =0;
+            this.powerUp = true;
+            this.game.ammo = this.game.maxAmmo;
+        }
     }
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////                                ENEMY CLASSES                                       ///////////////////
@@ -155,7 +170,7 @@ window.addEventListener('load',function (){
             this.x = this.game.width;
             this.speedX = Math.random() * -1.5 - 0.5;
             this.markedForDeletion = false;
-
+            this.type;
 
             this.frameX=0;
             this.frameY=0;
@@ -167,7 +182,6 @@ window.addEventListener('load',function (){
             if(this.x + this.width < 0) this.markedForDeletion = true;  //if enemy X coord is <0 mark him for deletion
             //changing frames for moving
             if(this.game.gameTime % 19 > 18) {
-                console.log("FrameX: "+this.frameX);
                 if (!this.turningBack) {
                     this.frameX++;
                     if (this.frameX >= this.maxFrame) {
@@ -200,11 +214,12 @@ window.addEventListener('load',function (){
             super(game);
             this.lives = 3;
             this.score = this.lives;
-            this.width = 191;
-            this.height = 161;
+            this.width = 152;
+            this.height = 122;
             this.image = document.getElementById("enemyWyvern");
             this.y = Math.random() * (this.game.height * 0.9 - this.height);    //Formula is:random * (Height of screen *0.9 - height of enemy)  to avoid situations where enemy is spawned below the map.
             this.maxFrame = 2;
+            this.type = "wyvern";
         }
     }
 
@@ -218,6 +233,7 @@ window.addEventListener('load',function (){
             this.image = document.getElementById("enemyGhost");
             this.y = Math.random() * (this.game.height * 0.9 - this.height);    //Formula is:random * (Height of screen *0.9 - height of enemy)  to avoid situations where enemy is spawned below the map.
             this.maxFrame = 2;
+            this.type = "ghost";
         }
     }
 
@@ -226,11 +242,12 @@ window.addEventListener('load',function (){
             super(game);
             this.lives = 2;
             this.score = -5;
-            this.width = 286;
-            this.height = 265;
+            this.width = 122.9;
+            this.height = 114;
             this.image = document.getElementById("enemyBird");
             this.y = Math.random() * (this.game.height * 0.9 - this.height);    //Formula is:random * (Height of screen *0.9 - height of enemy)  to avoid situations where enemy is spawned below the map.
             this.maxFrame = 8;
+            this.type = "parrot";
         }
     }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -418,7 +435,7 @@ window.addEventListener('load',function (){
 
             //Scores
             this.score = 0;
-            this.winningScore = 30;
+            this.winningScore = 60;
 
             //Game over limit time
             this.gameTime = 0;
@@ -440,11 +457,16 @@ window.addEventListener('load',function (){
 
             this.background.update();
             this.background.layer2.update();
-            if(!this.gameOver) this.player.update();
+            if(!this.gameOver) this.player.update(deltaTime);
 
             //Recharging player's ammo
             if(this.ammoRechargeTimer > this.ammoRechargeIntervalTimer){
-                if(this.ammo < this.maxAmmo) this.ammo++;
+                if(this.ammo < this.maxAmmo) {
+                    if(this.player.powerUp)
+                        this.ammo+=4;
+                    else
+                        this.ammo++;
+                }
                 this.ammoRechargeTimer=0;
             }
             else {
@@ -457,8 +479,11 @@ window.addEventListener('load',function (){
                     enemy.update();
                     if (this.checkCollision(this.player, enemy)) {
                         enemy.markedForDeletion = true;
-                        this.score -= enemy.score*2;
-                        this.addExplosion(enemy);
+                        if(enemy.type === 'parrot') this.player.enterPowerUp();
+                        else {
+                            this.score -= enemy.score*2;
+                            this.addExplosion(enemy);
+                        }
                     }
                     this.player.projectiles.forEach(projectile => {
                         if (this.checkCollision(projectile, enemy)) {
@@ -527,9 +552,11 @@ window.addEventListener('load',function (){
         }
 
         addEnemy(){
+            const randomize = Math.random();
+            if(randomize < 0.3) this.enemies.push(new Wyvern(this));
+            else if(randomize < 0.6) this.enemies.push(new Ghost(this));
+            else this.enemies.push(new Parrot(this));
             this.enemies.push(new Wyvern(game));   //passing game into enemies array
-            this.enemies.push(new Wyvern(game));   //passing game into enemies array
-            this.enemies.push(new Ghost(game));   //passing game into enemies array
         }
         checkCollision(rect1, rect2){
             return (
