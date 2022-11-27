@@ -2,8 +2,8 @@ window.addEventListener('load',function (){
     //canvas setup
     const canvas = document.getElementById('canvas1');
     const ctx = canvas.getContext('2d'); //argument for webGL or DX, means that we work in 2d not 3d
-    canvas.width = 500;
-    canvas.height = 500;
+    canvas.width = $(window).width();
+    canvas.height = $(window).height();
 
     class InputHandler{
         constructor(game) {
@@ -42,18 +42,40 @@ window.addEventListener('load',function (){
             this.game = game;
             this.x = x;
             this.y = y;
-            this.width = 10;
-            this.height = 3;
+            this.width = 184;
+            this.height = 102;
             this.speed = 3;
             this.markedForDeletion = false;                                                //flag for deleting objects
+
+            this.image = document.getElementById('projectile');
+            this.frameX=0;
+            this.frameY=0;
+            this.maxFrame=5;
+
         }
         update() {
             this.x += this.speed;
+            //Powerup state
+            if(!this.game.player.powerUp) this.frameY=1;
+            else this.frameY=0;
+            //changing frames for moving
+            if( this.game.gameTime % 6 > 5) {
+                if (!this.turningBack) {
+                    this.frameX++;
+                    if (this.frameX >= this.maxFrame)
+                        this.turningBack = true;
+                } else {
+                    this.frameX--;
+                    if (this.frameX === 0)
+                        this.turningBack = false;
+                }
+            }
+
             if(this.x > this.game.width * 0.9) this.markedForDeletion = true;               //if projectile is almost out of map we have to delete it
         }
         draw(context) {
-            context.fillStyle = 'yellow';                                                   //yellow lasers as projectiles
-            context.fillRect(this.x, this.y, this.height, this.width);
+            context.drawImage(this.image, this.frameX * this.width,this.frameY * this.height,
+                this.width,this.height ,this.x, this.y, this.width, this.height);
         }
     }
 
@@ -73,8 +95,12 @@ window.addEventListener('load',function (){
             this.frameY = 0;
             this.maxFrame = 4;
             this.turningBack = false;
+
             this.image = document.getElementById('player');
 
+            this.powerUp=false;
+            this.powerUpTimer=0;
+            this.powerUpLimit=10000;
 
         }
         update(){
@@ -92,14 +118,16 @@ window.addEventListener('load',function (){
             this.projectiles = this.projectiles.filter(projectile => !projectile.markedForDeletion)
 
             //changing frames for moving
-            if(!this.turningBack){
-                this.frameX++;
-                if(this.frameX >= this.maxFrame)
-                    this.turningBack = true;
-            } else {
-                this.frameX--;
-                if(this.frameX === 0)
-                    this.turningBack = false;
+            if( this.game.gameTime % 6 > 5) {
+                if (!this.turningBack) {
+                    this.frameX++;
+                    if (this.frameX >= this.maxFrame)
+                        this.turningBack = true;
+                } else {
+                    this.frameX--;
+                    if (this.frameX === 0)
+                        this.turningBack = false;
+                }
             }
 
         }
@@ -113,7 +141,7 @@ window.addEventListener('load',function (){
         }
         shootTop(){
             if(this.game.ammo > 0) {
-                this.projectiles.push(new Projectile(this.game, this.x + 80, this.y + 30));
+                this.projectiles.push(new Projectile(this.game, this.x + 80, this.y ));
                 this.game.ammo--;
             }
         }
@@ -128,25 +156,28 @@ window.addEventListener('load',function (){
             this.speedX = Math.random() * -1.5 - 0.5;
             this.markedForDeletion = false;
 
-            this.lives = 3;
-            this.score = this.lives;
 
             this.frameX=0;
             this.frameY=0;
             this.turningBack = false;
         }
         update(){
+            //Moving on the map & deleting
             this.x += this.speedX;
             if(this.x + this.width < 0) this.markedForDeletion = true;  //if enemy X coord is <0 mark him for deletion
             //changing frames for moving
-            if(!this.turningBack){
-                this.frameX++;
-                if(this.frameX >= this.maxFrame)
-                    this.turningBack = true;
-            } else {
-                this.frameX--;
-                if(this.frameX === 0)
-                    this.turningBack = false;
+            if(this.game.gameTime % 19 > 18) {
+                console.log("FrameX: "+this.frameX);
+                if (!this.turningBack) {
+                    this.frameX++;
+                    if (this.frameX >= this.maxFrame) {
+                        this.turningBack = true;
+                    }
+                } else {
+                    this.frameX--;
+                    if (this.frameX === 0)
+                        this.turningBack = false;
+                }
             }
         }
         draw(context){
@@ -157,7 +188,8 @@ window.addEventListener('load',function (){
                 context.font = '20px Helvetica';
                 context.fillText(this.lives, this.x, this.y)
             }
-            context.drawImage(this.image, this.frameX * this.width,this.frameY * this.height,this.width,this.height ,this.x, this.y, this.width, this.height);
+            context.drawImage(this.image, this.frameX * this.width,this.frameY * this.height,
+                this.width,this.height, this.x, this.y, this.width, this.height);
 
         }
 
@@ -166,14 +198,41 @@ window.addEventListener('load',function (){
     class Wyvern extends Enemy {
         constructor(game) {
             super(game);
+            this.lives = 3;
+            this.score = this.lives;
             this.width = 191;
             this.height = 161;
             this.image = document.getElementById("enemyWyvern");
             this.y = Math.random() * (this.game.height * 0.9 - this.height);    //Formula is:random * (Height of screen *0.9 - height of enemy)  to avoid situations where enemy is spawned below the map.
-            this.maxFrame = 3;
+            this.maxFrame = 2;
         }
     }
 
+    class Ghost extends Enemy {
+        constructor(game) {
+            super(game);
+            this.lives = 5;
+            this.score = this.lives;
+            this.width = 341.33;
+            this.height = 204.8;
+            this.image = document.getElementById("enemyGhost");
+            this.y = Math.random() * (this.game.height * 0.9 - this.height);    //Formula is:random * (Height of screen *0.9 - height of enemy)  to avoid situations where enemy is spawned below the map.
+            this.maxFrame = 2;
+        }
+    }
+
+    class Parrot extends Enemy {
+        constructor(game) {
+            super(game);
+            this.lives = 2;
+            this.score = -5;
+            this.width = 286;
+            this.height = 265;
+            this.image = document.getElementById("enemyBird");
+            this.y = Math.random() * (this.game.height * 0.9 - this.height);    //Formula is:random * (Height of screen *0.9 - height of enemy)  to avoid situations where enemy is spawned below the map.
+            this.maxFrame = 8;
+        }
+    }
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -239,7 +298,7 @@ window.addEventListener('load',function (){
 
             //score
             context.font = this.fontSize + 'px ' + this.fontFamily;
-            context.fillText("Score " + this.game.score, 20, 40);
+            context.fillText("Score " + this.game.score + "/"+this.game.winningScore, 20, 40);
 
             //ammo
             for (let i = 0; i < this.game.ammo; i++) {
@@ -248,7 +307,8 @@ window.addEventListener('load',function (){
 
             //timer for g-over
             const formattedTime = (this.game.gameTime * 0.001).toFixed(1);
-            context.fillText('Timer  ' + formattedTime, 20, 100);
+            const formattedTime2 = (this.game.timeLimit * 0.001).toFixed(1);
+            context.fillText('Timer  ' + formattedTime+"/"+formattedTime2, 20, 100);
 
             //game over messages
             if(this.game.gameOver) {
@@ -297,18 +357,18 @@ window.addEventListener('load',function (){
 
             //Scores
             this.score = 0;
-            this.winningScore = 10;
+            this.winningScore = 30;
 
             //Game over limit time
             this.gameTime = 0;
-            this.timeLimit = 10000;
+            this.timeLimit = 30000;
             this.gameOver = false;
 
             //background
             this.speed =1;
             this.background = new Background(this);
 
-            this.debug = true;
+            this.debug = false;
 
 
 
@@ -319,38 +379,39 @@ window.addEventListener('load',function (){
 
             this.background.update();
             this.background.layer2.update();
-            this.player.update();
+            if(!this.gameOver) this.player.update();
 
             //Recharging player's ammo
             if(this.ammoRechargeTimer > this.ammoRechargeIntervalTimer){
                 if(this.ammo < this.maxAmmo) this.ammo++;
                 this.ammoRechargeTimer=0;
-                console.log('ammo: '+this.ammo);
             }
             else {
                 this.ammoRechargeTimer+=deltaTime;
             }
 
             // Updating enemies
-            this.enemies.forEach(enemy => {
-                enemy.update();
-                if (this.checkCollision(this.player, enemy)) {
-                    enemy.markedForDeletion = true;
-                }
-                this.player.projectiles.forEach(projectile =>{
-                    if(this.checkCollision(projectile,enemy)) {
-                        enemy.lives--;
-                        projectile.markedForDeletion = true;
-                        if (enemy.lives <= 0) {
-                            enemy.markedForDeletion = true;
-                            if(!this.gameOver)  this.score += enemy.score;
-
-                            if(this.score > this.winningScore) this.gameOver = true;
-                        }
+            if(!this.gameOver) {
+                this.enemies.forEach(enemy => {
+                    enemy.update();
+                    if (this.checkCollision(this.player, enemy)) {
+                        enemy.markedForDeletion = true;
                     }
+                    this.player.projectiles.forEach(projectile => {
+                        if (this.checkCollision(projectile, enemy)) {
+                            enemy.lives--;
+                            projectile.markedForDeletion = true;
+                            if (enemy.lives <= 0) {
+                                enemy.markedForDeletion = true;
+                                if (!this.gameOver) this.score += enemy.score;
 
+                                if (this.score > this.winningScore) this.gameOver = true;
+                            }
+                        }
+
+                    })
                 })
-            })
+            }
             //Deleting enemies
             this.enemies = this.enemies.filter(enemy => !enemy.markedForDeletion);
             if(this.enemyTimer > this.enemyIntervalTimer && !this.gameOver){
@@ -363,12 +424,16 @@ window.addEventListener('load',function (){
         }
         draw(context){
             this.background.draw(context);
-            this.player.draw(context);
-            this.ui.draw(context);
-            this.enemies.forEach(enemy => {
-                enemy.draw(context);
-            })
-            this.background.layer2.draw(context);
+            if(!this.gameOver) {
+                this.player.draw(context);
+            }
+                this.ui.draw(context);
+            if(!this.gameOver) {
+                this.enemies.forEach(enemy => {
+                    enemy.draw(context);
+                })
+                this.background.layer2.draw(context);
+            }
         }
         addEnemy(){
             this.enemies.push(new Wyvern(game));   //passing game into enemies array
