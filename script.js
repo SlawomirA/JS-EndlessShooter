@@ -211,7 +211,7 @@ window.addEventListener('load',function (){
     class Ghost extends Enemy {
         constructor(game) {
             super(game);
-            this.lives = 5;
+            this.lives = 8;
             this.score = this.lives;
             this.width = 341.33;
             this.height = 204.8;
@@ -242,7 +242,7 @@ window.addEventListener('load',function (){
             this.image = image;
             this.speedModifier = speedModifier;
             this.width = 1920;
-            this.height = 1080;
+            this.height = 693;
             this.x=0;
             this.y=0;
 
@@ -278,16 +278,75 @@ window.addEventListener('load',function (){
         }
     }
 
+    class Explosion {
+        constructor(game, x, y) {
+            this.game = game;
+            this.spriteHeight = 200;
+
+            this.markedForDeletion = false;
+
+            this.frameX = 0;
+            this.maxFrame = 8;
+            this.fps = 15;
+            this.interval = 1000/this.fps;
+            this.timer = 0;
+
+        }
+        update(deltaTime) {
+            //Moving animation
+            this.x -= game.speed;
+
+            //Animating explosion
+            if(this.timer > this.interval) {
+                this.frameX++;
+                this.timer = 0;
+            } else {
+                this.timer += deltaTime;
+            }
+            if(this.frameX > this.maxFrame) this.markedForDeletion = true;
+        }
+
+        draw(context) {
+            context.drawImage(this.image, this.frameX * this.spriteWidth, 0,
+                this.spriteWidth,this.spriteHeight, this.x, this.y, this.width, this.height);
+        }
+    }
+
+    class SmokeExplosion extends Explosion {
+        constructor(game, x ,y) {
+            super(game, x ,y);
+            this.image = document.getElementById('smokeExplosion');
+            this.spriteWidth = 200;
+
+            this.width = this.spriteWidth;
+            this.height = this.spriteHeight;
+            this.x = x - this.width * 0.5;
+            this.y = y - this.height * 0.5;
+        }
+    }
+
+    class FireExplosion extends Explosion {
+        constructor(game, x ,y) {
+            super();
+            this.image = document.getElementById('fireExplosion');
+            this.spriteWidth = 200;
+
+            this.width = this.spriteWidth;
+            this.height = this.spriteHeight;
+            this.x = x - this.width * 0.5;
+            this.y = y - this.height * 0.5;
+        }
+    }
+
     class UI{           //draw score and so on
         constructor(game) {
-
             this.game = game;
             this.fontSize = 25;
             this.fontFamily = "Helvetica";
             this.color = "white";
 
-
         }
+
 
         draw(context) {
             context.save();
@@ -347,6 +406,8 @@ window.addEventListener('load',function (){
             //UI
             this.ui = new UI(this);
             //Enemies
+            this.smokeExplosions = [];
+            this.fireExplosions = [];
             this.enemies = [];
             this.enemyTimer = 0;
             this.enemyIntervalTimer = 1000;        //Create enemy every 1 second
@@ -396,6 +457,8 @@ window.addEventListener('load',function (){
                     enemy.update();
                     if (this.checkCollision(this.player, enemy)) {
                         enemy.markedForDeletion = true;
+                        this.score -= enemy.score*2;
+                        this.addExplosion(enemy);
                     }
                     this.player.projectiles.forEach(projectile => {
                         if (this.checkCollision(projectile, enemy)) {
@@ -403,6 +466,7 @@ window.addEventListener('load',function (){
                             projectile.markedForDeletion = true;
                             if (enemy.lives <= 0) {
                                 enemy.markedForDeletion = true;
+                                this.addExplosion2(enemy);
                                 if (!this.gameOver) this.score += enemy.score;
 
                                 if (this.score > this.winningScore) this.gameOver = true;
@@ -412,6 +476,13 @@ window.addEventListener('load',function (){
                     })
                 })
             }
+            //Explosions
+            this.smokeExplosions.forEach(explosion => explosion.update(deltaTime));
+            this.smokeExplosions = this.smokeExplosions.filter(explosion => !explosion.markedForDeletion);
+            this.fireExplosions.forEach(explosion => explosion.update(deltaTime));
+            this.fireExplosions = this.fireExplosions.filter(explosion => !explosion.markedForDeletion);
+
+
             //Deleting enemies
             this.enemies = this.enemies.filter(enemy => !enemy.markedForDeletion);
             if(this.enemyTimer > this.enemyIntervalTimer && !this.gameOver){
@@ -432,11 +503,33 @@ window.addEventListener('load',function (){
                 this.enemies.forEach(enemy => {
                     enemy.draw(context);
                 })
-                this.background.layer2.draw(context);
             }
+            this.smokeExplosions.forEach(explosion => {
+                explosion.draw(context);
+            })
+            this.fireExplosions.forEach(explosion => {
+                explosion.draw(context);
+            })
+
+            this.background.layer2.draw(context);
+
         }
+
+        addExplosion(enemy) {
+            const randomize = Math.random();
+            if(randomize < 1) this.smokeExplosions.push(new SmokeExplosion(this, enemy.x + enemy.width * 0.5, enemy.y + enemy.height * 0.5));
+        }
+
+        addExplosion2(enemy) {
+            const randomize = Math.random();
+            if(randomize < 1) this.fireExplosions.push(new FireExplosion(this, enemy.x + enemy.width * 0.5, enemy.y + enemy.height * 0.5));
+
+        }
+
         addEnemy(){
             this.enemies.push(new Wyvern(game));   //passing game into enemies array
+            this.enemies.push(new Wyvern(game));   //passing game into enemies array
+            this.enemies.push(new Ghost(game));   //passing game into enemies array
         }
         checkCollision(rect1, rect2){
             return (
@@ -456,8 +549,8 @@ window.addEventListener('load',function (){
         const deltaTime = timeStamp - lastTime; //diff between this animation loop and the timestamp from the previous animation loop
         lastTime = timeStamp;                   //we set the lastTime to timeStamp, so we can use it to calculate delta next time
         ctx.clearRect(0,0, canvas.width, canvas.height );
-        game.update(deltaTime);
         game.draw(ctx);
+        game.update(deltaTime);
         requestAnimationFrame(animate); //Passing animate to create endless animation loop, auto generates time stamp and interval
 
     }

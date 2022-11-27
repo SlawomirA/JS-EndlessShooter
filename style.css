@@ -16,7 +16,7 @@
     max-height: 100%;
 
 }
-#layer1, #layer2,#layer3,#layer4, #player, #enemyBird, #enemyGhost, #enemyWyvern, #projectile {
+#layer1, #layer2,#layer3,#layer4, #player, #enemyBird, #enemyGhost, #enemyWyvern, #projectile, #smokeExplosion, #fireExplosion {
     display: none;
 }
 
